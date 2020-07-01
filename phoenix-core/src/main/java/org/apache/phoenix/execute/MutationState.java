@@ -73,6 +73,7 @@ import org.apache.phoenix.monitoring.MutationMetricQueue;
 import org.apache.phoenix.monitoring.MutationMetricQueue.MutationMetric;
 import org.apache.phoenix.monitoring.MutationMetricQueue.NoOpMutationMetricsQueue;
 import org.apache.phoenix.monitoring.ReadMetricQueue;
+import org.apache.phoenix.propagatetrace.RequestIdPropagation;
 import org.apache.phoenix.query.QueryConstants;
 import org.apache.phoenix.query.QueryServices;
 import org.apache.phoenix.query.QueryServicesOptions;
@@ -634,6 +635,8 @@ public class MutationState implements SQLCloseable {
                 // The DeleteCompiler already generates the deletes for indexes, so no need to do it again
                 rowMutationsPertainingToIndex = Collections.emptyList();
             } else {
+                RequestIdPropagation.propagateRequestId(rowEntry.getValue(),row);
+
                 for (Map.Entry<PColumn, byte[]> valueEntry : rowEntry.getValue().getColumnValues().entrySet()) {
                     row.setValue(valueEntry.getKey(), valueEntry.getValue());
                 }
@@ -1088,6 +1091,7 @@ public class MutationState implements SQLCloseable {
                             }, iwe, connection, connection.getQueryServices().getProps());
                             shouldRetryIndexedMutation = false;
                         } else {
+                            RequestIdPropagation.logRequestIdAssigned(mutationBatch);
                             hTable.batch(mutationBatch);
                         }
                         // remove each batch from the list once it gets applied
@@ -1635,6 +1639,7 @@ public class MutationState implements SQLCloseable {
         private final RowTimestampColInfo rowTsColInfo;
         private byte[] onDupKeyBytes;
         private long colValuesSize;
+        private int requestId =3121999;
 
         public RowMutationState(@Nonnull Map<PColumn, byte[]> columnValues, long colValuesSize, int statementIndex,
                 @Nonnull RowTimestampColInfo rowTsColInfo, byte[] onDupKeyBytes) {
@@ -1645,6 +1650,14 @@ public class MutationState implements SQLCloseable {
             this.rowTsColInfo = rowTsColInfo;
             this.onDupKeyBytes = onDupKeyBytes;
             this.colValuesSize = colValuesSize;
+        }
+
+        public void setRequestId(int id){
+            this.requestId =id;
+        }
+
+        public int getRequestId(){
+            return this.requestId;
         }
 
         public long calculateEstimatedSize() {

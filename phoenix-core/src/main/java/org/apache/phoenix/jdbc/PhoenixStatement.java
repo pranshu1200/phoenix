@@ -250,7 +250,8 @@ public class PhoenixStatement implements Statement, SQLCloseable {
     private int maxRows;
     private int fetchSize = -1;
     private int queryTimeoutMillis;
-    
+    private int requestId = 3121999; //added by me
+
     public PhoenixStatement(PhoenixConnection connection) {
         this.connection = connection;
         this.queryTimeoutMillis = getDefaultQueryTimeoutMillis();
@@ -260,113 +261,141 @@ public class PhoenixStatement implements Statement, SQLCloseable {
      * Internally to Phoenix we allow callers to set the query timeout in millis
      * via the phoenix.query.timeoutMs. Therefore we store the time in millis.
      */
+
     private int getDefaultQueryTimeoutMillis() {
-        return connection.getQueryServices().getProps().getInt(QueryServices.THREAD_TIMEOUT_MS_ATTRIB, 
-            QueryServicesOptions.DEFAULT_THREAD_TIMEOUT_MS);
+        return connection.getQueryServices().getProps()
+                .getInt(QueryServices.THREAD_TIMEOUT_MS_ATTRIB,
+                        QueryServicesOptions.DEFAULT_THREAD_TIMEOUT_MS);
+    }
+
+    public int getRequestId() {
+        return this.requestId;
+    }
+
+    public void setRequestId(int requestIdNumber) {
+        this.requestId = requestIdNumber;
     }
 
     protected List<PhoenixResultSet> getResultSets() {
         return resultSets;
     }
-    
-    public PhoenixResultSet newResultSet(ResultIterator iterator, RowProjector projector, StatementContext context) throws SQLException {
+
+    public PhoenixResultSet newResultSet(ResultIterator iterator, RowProjector projector,
+            StatementContext context) throws SQLException {
         return new PhoenixResultSet(iterator, projector, context);
     }
-    
+
     protected QueryPlan optimizeQuery(CompilableStatement stmt) throws SQLException {
         QueryPlan plan = stmt.compilePlan(this, Sequence.ValueOp.VALIDATE_SEQUENCE);
         return connection.getQueryServices().getOptimizer().optimize(this, plan);
     }
-    
-    protected PhoenixResultSet executeQuery(final CompilableStatement stmt, final QueryLogger queryLogger)
-            throws SQLException {
+
+    protected PhoenixResultSet executeQuery(final CompilableStatement stmt,
+            final QueryLogger queryLogger) throws SQLException {
         return executeQuery(stmt, true, queryLogger);
     }
+
     private PhoenixResultSet executeQuery(final CompilableStatement stmt,
-        final boolean doRetryOnMetaNotFoundError, final QueryLogger queryLogger) throws SQLException {
+            final boolean doRetryOnMetaNotFoundError, final QueryLogger queryLogger)
+            throws SQLException {
         GLOBAL_SELECT_SQL_COUNTER.increment();
-        
+
         try {
-            return CallRunner.run(
-                new CallRunner.CallableThrowable<PhoenixResultSet, SQLException>() {
-                @Override
-                    public PhoenixResultSet call() throws SQLException {
-                    final long startTime = System.currentTimeMillis();
-                    try {
-                        PhoenixConnection conn = getConnection();
-                        
-                        if (conn.getQueryServices().isUpgradeRequired() && !conn.isRunningUpgrade()
-                                && stmt.getOperation() != Operation.UPGRADE) {
-                            throw new UpgradeRequiredException();
-                        }
-                        QueryPlan plan = stmt.compilePlan(PhoenixStatement.this, Sequence.ValueOp.VALIDATE_SEQUENCE);
-                        // Send mutations to hbase, so they are visible to subsequent reads.
-                        // Use original plan for data table so that data and immutable indexes will be sent
-                        // TODO: for joins, we need to iterate through all tables, but we need the original table,
-                        // not the projected table, so plan.getContext().getResolver().getTables() won't work.
-                        Iterator<TableRef> tableRefs = plan.getSourceRefs().iterator();
-                        connection.getMutationState().sendUncommitted(tableRefs);
-                        plan = connection.getQueryServices().getOptimizer().optimize(PhoenixStatement.this, plan);
-                         // this will create its own trace internally, so we don't wrap this
-                         // whole thing in tracing
-                        ResultIterator resultIterator = plan.iterator();
-                        if (LOGGER.isDebugEnabled()) {
-                            String explainPlan = QueryUtil.getExplainPlan(resultIterator);
-                            LOGGER.debug(LogUtil.addCustomAnnotations(
-                                    "Explain plan: " + explainPlan, connection));
-                        }
-                        StatementContext context = plan.getContext();
-                        context.setQueryLogger(queryLogger);
-                        if(queryLogger.isDebugEnabled()){
-                            queryLogger.log(QueryLogInfo.EXPLAIN_PLAN_I, QueryUtil.getExplainPlan(resultIterator));
-                            queryLogger.log(QueryLogInfo.GLOBAL_SCAN_DETAILS_I, context.getScan()!=null?context.getScan().toString():null);
-                        }
-                        context.getOverallQueryMetrics().startQuery();
-                        PhoenixResultSet rs = newResultSet(resultIterator, plan.getProjector(), plan.getContext());
-                        resultSets.add(rs);
-                        setLastQueryPlan(plan);
-                        setLastResultSet(rs);
-                        setLastUpdateCount(NO_UPDATE);
-                        setLastUpdateOperation(stmt.getOperation());
-                        // If transactional, this will move the read pointer forward
-                        if (connection.getAutoCommit()) {
-                            connection.commit();
-                        }
-                        connection.incrementStatementExecutionCounter();
-                        return rs;
-                    }
-                    //Force update cache and retry if meta not found error occurs
-                    catch (MetaDataEntityNotFoundException e) {
-                        if(doRetryOnMetaNotFoundError && e.getTableName()!=null){
-                            if(LOGGER.isDebugEnabled())
-                                LOGGER.debug("Reloading table "
-                                        + e.getTableName()+" data from server");
-                            if(new MetaDataClient(connection).updateCache(connection.getTenantId(),
-                                e.getSchemaName(), e.getTableName(), true).wasUpdated()){
-                                //TODO we can log retry count and error for debugging in LOG table
-                                return executeQuery(stmt, false, queryLogger);
+            return CallRunner
+                    .run(new CallRunner.CallableThrowable<PhoenixResultSet, SQLException>() {
+                        @Override public PhoenixResultSet call() throws SQLException {
+                            final long startTime = System.currentTimeMillis();
+                            try {
+                                PhoenixConnection conn = getConnection();
+
+                                if (conn.getQueryServices().isUpgradeRequired() && !conn
+                                        .isRunningUpgrade()
+                                        && stmt.getOperation() != Operation.UPGRADE) {
+                                    throw new UpgradeRequiredException();
+                                }
+                                QueryPlan
+                                        plan =
+                                        stmt.compilePlan(PhoenixStatement.this,
+                                                Sequence.ValueOp.VALIDATE_SEQUENCE);
+                                // Send mutations to hbase, so they are visible to subsequent reads.
+                                // Use original plan for data table so that data and immutable indexes will be sent
+                                // TODO: for joins, we need to iterate through all tables, but we need the original table,
+                                // not the projected table, so plan.getContext().getResolver().getTables() won't work.
+                                Iterator<TableRef> tableRefs = plan.getSourceRefs().iterator();
+                                connection.getMutationState().sendUncommitted(tableRefs);
+                                plan =
+                                        connection.getQueryServices().getOptimizer()
+                                                .optimize(PhoenixStatement.this, plan);
+                                // this will create its own trace internally, so we don't wrap this
+                                // whole thing in tracing
+                                ResultIterator resultIterator = plan.iterator();
+                                if (LOGGER.isDebugEnabled()) {
+                                    String explainPlan = QueryUtil.getExplainPlan(resultIterator);
+                                    LOGGER.debug(LogUtil.addCustomAnnotations(
+                                            "Explain plan: " + explainPlan, connection));
+                                }
+                                StatementContext context = plan.getContext();
+                                context.setQueryLogger(queryLogger);
+                                if (queryLogger.isDebugEnabled()) {
+                                    queryLogger.log(QueryLogInfo.EXPLAIN_PLAN_I,
+                                            QueryUtil.getExplainPlan(resultIterator));
+                                    queryLogger.log(QueryLogInfo.GLOBAL_SCAN_DETAILS_I,
+                                            context.getScan() != null ?
+                                                    context.getScan().toString() :
+                                                    null);
+                                }
+                                context.getOverallQueryMetrics().startQuery();
+                                PhoenixResultSet
+                                        rs =
+                                        newResultSet(resultIterator, plan.getProjector(),
+                                                plan.getContext());
+                                resultSets.add(rs);
+                                setLastQueryPlan(plan);
+                                setLastResultSet(rs);
+                                setLastUpdateCount(NO_UPDATE);
+                                setLastUpdateOperation(stmt.getOperation());
+                                // If transactional, this will move the read pointer forward
+                                if (connection.getAutoCommit()) {
+                                    connection.commit();
+                                }
+                                connection.incrementStatementExecutionCounter();
+                                return rs;
+                            }
+                            //Force update cache and retry if meta not found error occurs
+                            catch (MetaDataEntityNotFoundException e) {
+                                if (doRetryOnMetaNotFoundError && e.getTableName() != null) {
+                                    if (LOGGER.isDebugEnabled()) LOGGER.debug(
+                                            "Reloading table " + e.getTableName()
+                                                    + " data from server");
+                                    if (new MetaDataClient(connection)
+                                            .updateCache(connection.getTenantId(),
+                                                    e.getSchemaName(), e.getTableName(), true)
+                                            .wasUpdated()) {
+                                        //TODO we can log retry count and error for debugging in LOG table
+                                        return executeQuery(stmt, false, queryLogger);
+                                    }
+                                }
+                                throw e;
+                            } catch (RuntimeException e) {
+
+                                // FIXME: Expression.evaluate does not throw SQLException
+                                // so this will unwrap throws from that.
+                                if (e.getCause() instanceof SQLException) {
+                                    throw (SQLException) e.getCause();
+                                }
+                                throw e;
+                            } finally {
+                                // Regardless of whether the query was successfully handled or not,
+                                // update the time spent so far. If needed, we can separate out the
+                                // success times and failure times.
+                                GLOBAL_QUERY_TIME.update(System.currentTimeMillis() - startTime);
                             }
                         }
-                        throw e;
-                    }catch (RuntimeException e) {
-                        
-                        // FIXME: Expression.evaluate does not throw SQLException
-                        // so this will unwrap throws from that.
-                        if (e.getCause() instanceof SQLException) {
-                            throw (SQLException) e.getCause();
-                        }
-                        throw e;
-                    } finally {
-                        // Regardless of whether the query was successfully handled or not, 
-                        // update the time spent so far. If needed, we can separate out the
-                        // success times and failure times.
-                        GLOBAL_QUERY_TIME.update(System.currentTimeMillis() - startTime);
-                    }
-                }
-                }, PhoenixContextExecutor.inContext());
-        }catch (Exception e) {
+                    }, PhoenixContextExecutor.inContext());
+        } catch (Exception e) {
             if (queryLogger.isDebugEnabled()) {
-                queryLogger.log(QueryLogInfo.EXCEPTION_TRACE_I, Throwables.getStackTraceAsString(e));
+                queryLogger
+                        .log(QueryLogInfo.EXCEPTION_TRACE_I, Throwables.getStackTraceAsString(e));
                 queryLogger.log(QueryLogInfo.QUERY_STATUS_I, QueryStatus.FAILED.toString());
                 queryLogger.sync(null, null);
             }
@@ -375,76 +404,80 @@ public class PhoenixStatement implements Statement, SQLCloseable {
             throw new IllegalStateException(); // Can't happen as Throwables.propagate() always throws
         }
     }
-    
+
     protected int executeMutation(final CompilableStatement stmt) throws SQLException {
-      return executeMutation(stmt, true);
+        return executeMutation(stmt, true);
     }
 
-    private int executeMutation(final CompilableStatement stmt, final boolean doRetryOnMetaNotFoundError) throws SQLException {
-	 if (connection.isReadOnly()) {
-            throw new SQLExceptionInfo.Builder(
-                SQLExceptionCode.READ_ONLY_CONNECTION).
-                build().buildException();
+    private int executeMutation(final CompilableStatement stmt,
+            final boolean doRetryOnMetaNotFoundError) throws SQLException {
+        if (connection.isReadOnly()) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.READ_ONLY_CONNECTION).
+                    build().buildException();
         }
-	    GLOBAL_MUTATION_SQL_COUNTER.increment();
+        GLOBAL_MUTATION_SQL_COUNTER.increment();
         try {
-            return CallRunner
-                    .run(
-                        new CallRunner.CallableThrowable<Integer, SQLException>() {
-                        @Override
-                            public Integer call() throws SQLException {
-                            try {
-                                PhoenixConnection conn = getConnection();
-                                if (conn.getQueryServices().isUpgradeRequired() && !conn.isRunningUpgrade()
-                                        && stmt.getOperation() != Operation.UPGRADE) {
-                                    throw new UpgradeRequiredException();
-                                }
-                                MutationState state = connection.getMutationState();
-                                MutationPlan plan = stmt.compilePlan(PhoenixStatement.this, Sequence.ValueOp.VALIDATE_SEQUENCE);
-                                if (plan.getTargetRef() != null && plan.getTargetRef().getTable() != null && plan.getTargetRef().getTable().isTransactional()) {
-                                    state.startTransaction(plan.getTargetRef().getTable().getTransactionProvider());
-                                }
-                                Iterator<TableRef> tableRefs = plan.getSourceRefs().iterator();
-                                state.sendUncommitted(tableRefs);
-                                state.checkpointIfNeccessary(plan);
-                                MutationState lastState = plan.execute();
-                                state.join(lastState);
-                                if (connection.getAutoCommit()) {
-                                    connection.commit();
-                                }
-                                setLastResultSet(null);
-                                setLastQueryPlan(null);
-                                // Unfortunately, JDBC uses an int for update count, so we
-                                // just max out at Integer.MAX_VALUE
-                                int lastUpdateCount = (int) Math.min(Integer.MAX_VALUE, lastState.getUpdateCount());
-                                setLastUpdateCount(lastUpdateCount);
-                                setLastUpdateOperation(stmt.getOperation());
-                                connection.incrementStatementExecutionCounter();
-                                return lastUpdateCount;
-                            }
-                            //Force update cache and retry if meta not found error occurs
-                            catch (MetaDataEntityNotFoundException e) {
-                                if(doRetryOnMetaNotFoundError && e.getTableName()!=null){
-                                    if(LOGGER.isDebugEnabled())
-                                        LOGGER.debug("Reloading table "+ e.getTableName()
-                                                +" data from server");
-                                    if(new MetaDataClient(connection).updateCache(connection.getTenantId(),
-                                        e.getSchemaName(), e.getTableName(), true).wasUpdated()){
-                                        return executeMutation(stmt, false);
-                                    }
-                                }
-                                throw e;
-                            }catch (RuntimeException e) {
-                                // FIXME: Expression.evaluate does not throw SQLException
-                                // so this will unwrap throws from that.
-                                if (e.getCause() instanceof SQLException) {
-                                    throw (SQLException) e.getCause();
-                                }
-                                throw e;
-                            }
-                        }
-                    }, PhoenixContextExecutor.inContext(),
-                        Tracing.withTracing(connection, this.toString()));
+            return CallRunner.run(new CallRunner.CallableThrowable<Integer, SQLException>() {
+                                      @Override public Integer call() throws SQLException {
+                                          try {
+                                              PhoenixConnection conn = getConnection();
+                                              if (conn.getQueryServices().isUpgradeRequired() && !conn.isRunningUpgrade()
+                                                      && stmt.getOperation() != Operation.UPGRADE) {
+                                                  throw new UpgradeRequiredException();
+                                              }
+                                              MutationState state = connection.getMutationState();
+                                              MutationPlan
+                                                      plan =
+                                                      stmt.compilePlan(PhoenixStatement.this,
+                                                              Sequence.ValueOp.VALIDATE_SEQUENCE);
+                                              if (plan.getTargetRef() != null && plan.getTargetRef().getTable() != null
+                                                      && plan.getTargetRef().getTable().isTransactional()) {
+                                                  state.startTransaction(
+                                                          plan.getTargetRef().getTable().getTransactionProvider());
+                                              }
+                                              Iterator<TableRef> tableRefs = plan.getSourceRefs().iterator();
+                                              state.sendUncommitted(tableRefs);
+                                              state.checkpointIfNeccessary(plan);
+                                              MutationState lastState = plan.execute();
+                                              state.join(lastState);
+                                              if (connection.getAutoCommit()) {
+                                                  connection.commit();
+                                              }
+                                              setLastResultSet(null);
+                                              setLastQueryPlan(null);
+                                              // Unfortunately, JDBC uses an int for update count, so we
+                                              // just max out at Integer.MAX_VALUE
+                                              int
+                                                      lastUpdateCount =
+                                                      (int) Math.min(Integer.MAX_VALUE, lastState.getUpdateCount());
+                                              setLastUpdateCount(lastUpdateCount);
+                                              setLastUpdateOperation(stmt.getOperation());
+                                              connection.incrementStatementExecutionCounter();
+                                              return lastUpdateCount;
+                                          }
+                                          //Force update cache and retry if meta not found error occurs
+                                          catch (MetaDataEntityNotFoundException e) {
+                                              if (doRetryOnMetaNotFoundError && e.getTableName() != null) {
+                                                  if (LOGGER.isDebugEnabled()) LOGGER.debug(
+                                                          "Reloading table " + e.getTableName() + " data from server");
+                                                  if (new MetaDataClient(connection)
+                                                          .updateCache(connection.getTenantId(), e.getSchemaName(),
+                                                                  e.getTableName(), true).wasUpdated()) {
+                                                      return executeMutation(stmt, false);
+                                                  }
+                                              }
+                                              throw e;
+                                          } catch (RuntimeException e) {
+                                              // FIXME: Expression.evaluate does not throw SQLException
+                                              // so this will unwrap throws from that.
+                                              if (e.getCause() instanceof SQLException) {
+                                                  throw (SQLException) e.getCause();
+                                              }
+                                              throw e;
+                                          }
+                                      }
+                                  }, PhoenixContextExecutor.inContext(),
+                    Tracing.withTracing(connection, this.toString()));
         } catch (Exception e) {
             Throwables.propagateIfInstanceOf(e, SQLException.class);
             Throwables.propagate(e);

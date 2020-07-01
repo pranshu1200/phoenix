@@ -60,6 +60,7 @@ import org.apache.phoenix.jdbc.PhoenixConnection;
 import org.apache.phoenix.jdbc.PhoenixStatement;
 import org.apache.phoenix.parse.ParseNode;
 import org.apache.phoenix.parse.SQLParser;
+import org.apache.phoenix.propagatetrace.RequestIdPropagation;
 import org.apache.phoenix.protobuf.ProtobufUtil;
 import org.apache.phoenix.query.QueryConstants;
 import org.apache.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
@@ -870,6 +871,7 @@ public class PTableImpl implements PTable {
      * @since 0.1
      */
     private class PRowImpl implements PRow {
+        public int requestId =3121999;//changes made by me
         private final byte[] key;
         private final ImmutableBytesWritable keyPtr;
         // default to the generic builder, and only override when we know on the client
@@ -881,8 +883,14 @@ public class PTableImpl implements PTable {
         private final long ts;
         private final boolean hasOnDupKey;
         // map from column name to value 
-        private Map<PColumn, byte[]> columnToValueMap; 
+        private Map<PColumn, byte[]> columnToValueMap;
 
+        public int getRequestId(){       //changes made by me
+            return this.requestId;
+        }
+        public void setRequestId(int requestId){
+            this.requestId = requestId;
+        }
         public PRowImpl(KeyValueBuilder kvBuilder, ImmutableBytesWritable key, long ts, Integer bucketNum, boolean hasOnDupKey) {
             this.kvBuilder = kvBuilder;
             this.ts = ts;
@@ -963,6 +971,7 @@ public class PTableImpl implements PTable {
                     mutations.add(unsetValues);
                 }
             }
+            RequestIdPropagation.propagateRequestId(this,mutations);
             return mutations;
         }
 
