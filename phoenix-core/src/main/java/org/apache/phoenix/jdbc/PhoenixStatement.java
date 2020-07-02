@@ -250,25 +250,35 @@ public class PhoenixStatement implements Statement, SQLCloseable {
     private int maxRows;
     private int fetchSize = -1;
     private int queryTimeoutMillis;
-    
+    private int requestId;
+
     public PhoenixStatement(PhoenixConnection connection) {
         this.connection = connection;
         this.queryTimeoutMillis = getDefaultQueryTimeoutMillis();
     }
+
+    public int getRequestId(){
+        return this.requestId;
+    }
+
+    public void setRequestId(int requestIdNumber){
+        this.requestId=requestIdNumber;
+    }
+
 
     /**
      * Internally to Phoenix we allow callers to set the query timeout in millis
      * via the phoenix.query.timeoutMs. Therefore we store the time in millis.
      */
     private int getDefaultQueryTimeoutMillis() {
-        return connection.getQueryServices().getProps().getInt(QueryServices.THREAD_TIMEOUT_MS_ATTRIB, 
+        return connection.getQueryServices().getProps().getInt(QueryServices.THREAD_TIMEOUT_MS_ATTRIB,
             QueryServicesOptions.DEFAULT_THREAD_TIMEOUT_MS);
     }
 
     protected List<PhoenixResultSet> getResultSets() {
         return resultSets;
     }
-    
+
     public PhoenixResultSet newResultSet(ResultIterator iterator, RowProjector projector, StatementContext context) throws SQLException {
         return new PhoenixResultSet(iterator, projector, context);
     }
@@ -277,7 +287,7 @@ public class PhoenixStatement implements Statement, SQLCloseable {
         QueryPlan plan = stmt.compilePlan(this, Sequence.ValueOp.VALIDATE_SEQUENCE);
         return connection.getQueryServices().getOptimizer().optimize(this, plan);
     }
-    
+
     protected PhoenixResultSet executeQuery(final CompilableStatement stmt, final QueryLogger queryLogger)
             throws SQLException {
         return executeQuery(stmt, true, queryLogger);
