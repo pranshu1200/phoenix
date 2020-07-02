@@ -1,8 +1,10 @@
 package org.apache.phoenix.propagatetrace;
 
 
+import java.sql.Timestamp;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.phoenix.execute.MutationState;
+import org.apache.phoenix.jdbc.PhoenixConnection;
 import org.apache.phoenix.jdbc.PhoenixStatement;
 import org.apache.phoenix.schema.PRow;
 import org.slf4j.Logger;
@@ -13,13 +15,33 @@ import java.util.Random;
 
 public class RequestIdPropagation {
     final static Logger logger = LoggerFactory.getLogger(RequestIdPropagation.class);
+    private static long counter=0;
+
+    private static void incrementcounter(){
+        counter++;
+        if(counter<0)counter=0;
+    }
+
+    private static String createRequestId(PhoenixStatement stmt){
+        String client;
+        PhoenixConnection conn = stmt.getConnection();
+        Timestamp timestamp = new Timestamp(System.currentTimeMillis());
+        if(stmt.getConnection().getTenantId()==null){
+            client = conn.getQueryServices().getUser().getName();
+        }
+        else{
+            client = conn.getTenantId().toString();
+        }
+        client=client+Long.toString(timestamp.getTime())+Long.toString(counter);
+        incrementcounter();
+        return client;
+    }
 
     public static void setInitialRequestId(PhoenixStatement stmt){
-        //System.out.println(stmt.getConnection().getTenantId());
-        Random rn = new Random();
-        stmt.setRequestId(rn.nextInt());
+        stmt.setRequestId(createRequestId(stmt));
         logRequestIdAssigned(stmt);
     }
+
     public static void propagateRequestId(PhoenixStatement src, MutationState.RowMutationState dest){
         dest.setRequestId(src.getRequestId());
         logRequestIdAssigned(dest);
@@ -30,19 +52,19 @@ public class RequestIdPropagation {
     }
     public static void propagateRequestId(PRow src, List<Mutation>dest){
         for(int it=0;it<dest.size();it++){
-            dest.get(it).setId(Integer.toString(src.getRequestId()));
+            dest.get(it).setId(src.getRequestId());
         }
     }
 
-    public static int extractRequestId(PhoenixStatement stmt){
+    public static String extractRequestId(PhoenixStatement stmt){
         return stmt.getRequestId();
     }
 
-    public static int extractRequestId(MutationState.RowMutationState rowMutationState){
+    public static String extractRequestId(MutationState.RowMutationState rowMutationState){
         return rowMutationState.getRequestId();
     }
 
-    public static int extractRequestId(PRow row){
+    public static String extractRequestId(PRow row){
         return row.getRequestId();
     }
 

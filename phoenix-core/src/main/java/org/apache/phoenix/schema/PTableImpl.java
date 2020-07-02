@@ -871,7 +871,7 @@ public class PTableImpl implements PTable {
      * @since 0.1
      */
     private class PRowImpl implements PRow {
-        public int requestId =3121999;//changes made by me
+        public String requestId;
         private final byte[] key;
         private final ImmutableBytesWritable keyPtr;
         // default to the generic builder, and only override when we know on the client
@@ -885,10 +885,10 @@ public class PTableImpl implements PTable {
         // map from column name to value 
         private Map<PColumn, byte[]> columnToValueMap;
 
-        public int getRequestId(){       //changes made by me
+        public String getRequestId(){
             return this.requestId;
         }
-        public void setRequestId(int requestId){
+        public void setRequestId(String requestId){
             this.requestId = requestId;
         }
         public PRowImpl(KeyValueBuilder kvBuilder, ImmutableBytesWritable key, long ts, Integer bucketNum, boolean hasOnDupKey) {

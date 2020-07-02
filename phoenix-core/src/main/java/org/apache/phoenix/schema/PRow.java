@@ -61,6 +61,6 @@ public interface PRow {
      * values that may have been set before or after the delete call.
      */
     public void delete();
-    public int getRequestId();//changes made by me
-    public void setRequestId(int requestId);
+    public String getRequestId();
+    public void setRequestId(String requestId);
 }

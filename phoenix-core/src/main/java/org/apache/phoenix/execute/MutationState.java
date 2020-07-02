@@ -1638,7 +1638,7 @@ public class MutationState implements SQLCloseable {
         private final RowTimestampColInfo rowTsColInfo;
         private byte[] onDupKeyBytes;
         private long colValuesSize;
-        private int requestId =3121999;
+        private String requestId;
 
         public RowMutationState(@Nonnull Map<PColumn, byte[]> columnValues, long colValuesSize, int statementIndex,
                 @Nonnull RowTimestampColInfo rowTsColInfo, byte[] onDupKeyBytes) {
@@ -1651,11 +1651,11 @@ public class MutationState implements SQLCloseable {
             this.colValuesSize = colValuesSize;
         }
 
-        public void setRequestId(int id){
+        public void setRequestId(String id){
             this.requestId =id;
         }
 
-        public int getRequestId(){
+        public String getRequestId(){
             return this.requestId;
         }
 

@@ -250,19 +250,19 @@ public class PhoenixStatement implements Statement, SQLCloseable {
     private int maxRows;
     private int fetchSize = -1;
     private int queryTimeoutMillis;
-    private int requestId;
+    private String requestId;
 
     public PhoenixStatement(PhoenixConnection connection) {
         this.connection = connection;
         this.queryTimeoutMillis = getDefaultQueryTimeoutMillis();
     }
 
-    public int getRequestId(){
+    public String getRequestId(){
         return this.requestId;
     }
 
-    public void setRequestId(int requestIdNumber){
-        this.requestId=requestIdNumber;
+    public void setRequestId(String requestId){
+        this.requestId=requestId;
     }
 
 
@@ -282,7 +282,7 @@ public class PhoenixStatement implements Statement, SQLCloseable {
     public PhoenixResultSet newResultSet(ResultIterator iterator, RowProjector projector, StatementContext context) throws SQLException {
         return new PhoenixResultSet(iterator, projector, context);
     }
-    
+
     protected QueryPlan optimizeQuery(CompilableStatement stmt) throws SQLException {
         QueryPlan plan = stmt.compilePlan(this, Sequence.ValueOp.VALIDATE_SEQUENCE);
         return connection.getQueryServices().getOptimizer().optimize(this, plan);
