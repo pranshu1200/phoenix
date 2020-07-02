@@ -902,7 +902,7 @@ public class PhoenixConnection implements Connection, MetaDataMutated, SQLClosea
         checkOpen();
         PhoenixPreparedStatement statement = new PhoenixPreparedStatement(this,
                 sql);
-        RequestIdPropagation.setInitialRequestId(statement);//changes under pr
+        RequestIdPropagation.setInitialRequestId(statement);
         statements.add(statement);
         return statement;
     }

@@ -636,7 +636,6 @@ public class MutationState implements SQLCloseable {
                 rowMutationsPertainingToIndex = Collections.emptyList();
             } else {
                 RequestIdPropagation.propagateRequestId(rowEntry.getValue(),row);
-
                 for (Map.Entry<PColumn, byte[]> valueEntry : rowEntry.getValue().getColumnValues().entrySet()) {
                     row.setValue(valueEntry.getKey(), valueEntry.getValue());
                 }
