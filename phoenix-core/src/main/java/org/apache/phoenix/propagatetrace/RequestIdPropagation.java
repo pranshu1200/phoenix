@@ -1,10 +1,14 @@
 package org.apache.phoenix.propagatetrace;
 
 
+import java.sql.ResultSet;
 import java.sql.Timestamp;
 import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.client.Scan;
+import org.apache.phoenix.compile.QueryPlan;
 import org.apache.phoenix.execute.MutationState;
 import org.apache.phoenix.jdbc.PhoenixConnection;
+import org.apache.phoenix.jdbc.PhoenixResultSet;
 import org.apache.phoenix.jdbc.PhoenixStatement;
 import org.apache.phoenix.schema.PRow;
 import org.slf4j.Logger;
@@ -15,11 +19,12 @@ import java.util.Random;
 
 public class RequestIdPropagation {
     final static Logger logger = LoggerFactory.getLogger(RequestIdPropagation.class);
-    private static long counter=0;
+    private static long counter=-1;
 
-    private static void incrementcounter(){
+    private static synchronized long getAndSetCounter(){
         counter++;
         if(counter<0)counter=0;
+        return counter;
     }
 
     private static String createRequestId(PhoenixStatement stmt){
@@ -32,8 +37,7 @@ public class RequestIdPropagation {
         else{
             client = conn.getTenantId().toString();
         }
-        client=client+Long.toString(timestamp.getTime())+Long.toString(counter);
-        incrementcounter();
+        client=client+Long.toString(timestamp.getTime())+Long.toString(getAndSetCounter());
         return client;
     }
 
@@ -55,6 +59,10 @@ public class RequestIdPropagation {
             dest.get(it).setId(src.getRequestId());
         }
     }
+    public static void propagateRequestId(PhoenixStatement src, Scan dest){
+        dest.setId(src.getRequestId());
+        logRequestIdAssigned(dest);
+    }
 
     public static String extractRequestId(PhoenixStatement stmt){
         return stmt.getRequestId();
@@ -66,6 +74,10 @@ public class RequestIdPropagation {
 
     public static String extractRequestId(PRow row){
         return row.getRequestId();
+    }
+
+    public static  String extractRequestId(Scan scan){
+        return scan.getId();
     }
 
     public static void logRequestIdAssigned(PhoenixStatement stmt){
@@ -84,9 +96,22 @@ public class RequestIdPropagation {
         logger.info("mutation {}. attached to mutation id {}.",mutation,mutation.getId());
     }
 
+    public static void logRequestIdAssigned(Scan scan){
+        logger.info("scan object {}. assigned RequestId {}.",scan,extractRequestId(scan));
+    }
+
     public static  void logRequestIdAssigned(List<Mutation>batch){
         for(int it=0;it<batch.size();it++){
             logRequestIdAssigned(batch.get(it));
         }
     }
+
+    public static void logEndOfSelect(QueryPlan plan){
+        logger.debug("requestId {}. propagated futher",plan.getContext().getScan().getId());
+    }
+
+    public static  void logResultSetCreated(PhoenixResultSet rs){
+        logger.debug("result set generated for {}.",extractRequestId(rs.getContext().getScan()));
+    }
+
 }
