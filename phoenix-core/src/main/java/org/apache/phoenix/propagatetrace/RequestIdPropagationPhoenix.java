@@ -1,24 +1,21 @@
 package org.apache.phoenix.propagatetrace;
 
 
-import java.sql.ResultSet;
 import java.sql.Timestamp;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.phoenix.compile.QueryPlan;
 import org.apache.phoenix.execute.MutationState;
 import org.apache.phoenix.jdbc.PhoenixConnection;
-import org.apache.phoenix.jdbc.PhoenixResultSet;
 import org.apache.phoenix.jdbc.PhoenixStatement;
 import org.apache.phoenix.schema.PRow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
-import java.util.Random;
 
-public class RequestIdPropagation {
-    final static Logger logger = LoggerFactory.getLogger(RequestIdPropagation.class);
+public class RequestIdPropagationPhoenix {
+    final static Logger logger = LoggerFactory.getLogger(RequestIdPropagationPhoenix.class);
     private static long counter=-1;
 
     private static synchronized long getAndSetCounter(){
@@ -48,11 +45,9 @@ public class RequestIdPropagation {
 
     public static void propagateRequestId(PhoenixStatement src, MutationState.RowMutationState dest){
         dest.setRequestId(src.getRequestId());
-        logRequestIdAssigned(dest);
     }
     public static void propagateRequestId(MutationState.RowMutationState src, PRow dest){
         dest.setRequestId((src.getRequestId()));
-        logRequestIdAssigned(dest);
     }
     public static void propagateRequestId(PRow src, List<Mutation>dest){
         for(int it=0;it<dest.size();it++){
@@ -61,43 +56,20 @@ public class RequestIdPropagation {
     }
     public static void propagateRequestId(PhoenixStatement src, Scan dest){
         dest.setId(src.getRequestId());
-        logRequestIdAssigned(dest);
     }
 
     public static String extractRequestId(PhoenixStatement stmt){
         return stmt.getRequestId();
     }
 
-    public static String extractRequestId(MutationState.RowMutationState rowMutationState){
-        return rowMutationState.getRequestId();
-    }
-
-    public static String extractRequestId(PRow row){
-        return row.getRequestId();
-    }
-
-    public static  String extractRequestId(Scan scan){
-        return scan.getId();
-    }
-
     public static void logRequestIdAssigned(PhoenixStatement stmt){
-        logger.info("attached traceId {}. to query-statement {}.", RequestIdPropagation.extractRequestId(stmt),stmt);
-    }
-
-    public static void logRequestIdAssigned(MutationState.RowMutationState rowMutationState){
-        logger.debug("attached traceId {}. to RowMutationState {}.", extractRequestId(rowMutationState),rowMutationState);
-    }
-
-    public static void logRequestIdAssigned(PRow row){
-        logger.debug("attached traceId {}. to PRow Object ", extractRequestId(row),row);
+        System.out.println("attached "+ RequestIdPropagationPhoenix.extractRequestId(stmt)+" to "+stmt.toString());
+        logger.info("attached traceId {}. to query-statement {}.", RequestIdPropagationPhoenix.extractRequestId(stmt),stmt);
     }
 
     public static void logRequestIdAssigned(Mutation mutation){
-        logger.info("mutation {}. attached to mutation id {}.",mutation,mutation.getId());
-    }
-
-    public static void logRequestIdAssigned(Scan scan){
-        logger.info("scan object {}. assigned RequestId {}.",scan,extractRequestId(scan));
+        System.out.println("mutation corresponding to request id"+mutation.getId()+"propagated from Phoenix to Hbase side");
+        logger.info("mutation corresponding to request id {}. propagated from Phoenix to HBase side",mutation.getId());
     }
 
     public static  void logRequestIdAssigned(List<Mutation>batch){
@@ -107,11 +79,12 @@ public class RequestIdPropagation {
     }
 
     public static void logEndOfSelect(QueryPlan plan){
-        logger.debug("requestId {}. propagated futher",plan.getContext().getScan().getId());
-    }
-
-    public static  void logResultSetCreated(PhoenixResultSet rs){
-        logger.debug("result set generated for {}.",extractRequestId(rs.getContext().getScan()));
+        if(plan.getContext().getScan().getId()!="" && plan.getContext().getScan().getId()!=null) {
+            System.out.println("requestId " + plan.getContext().getScan().getId() + " propagated futher from Phoenix to HBase side for table " + plan.getTableRef()
+                .getTable().getTableName());
+            logger.debug("requestId {}. propagated futher from Phoenix to HBase side for table {}.",
+                plan.getContext().getScan().getId(),plan.getTableRef().getTable().getTableName());
+        }
     }
 
 }

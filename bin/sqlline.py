@@ -61,7 +61,7 @@ sqlfile = args.sqlfile
 
 # HBase configuration folder path (where hbase-site.xml reside) for
 # HBase/Phoenix client side property override
-hbase_config_path = os.getenv('HBASE_CONF_DIR', phoenix_utils.current_dir)
+hbase_config_path = "/Users/pranshu.khandelwal/Desktop/final/conf"
 
 if sqlfile and not os.path.isfile(sqlfile):
     parser.print_help()
@@ -84,7 +84,7 @@ elif os.name == 'nt':
 if not hbase_env_path or not hbase_env_cmd:
     print >> sys.stderr, "hbase-env file unknown on platform %s" % os.name
     sys.exit(-1)
-
+hbase_client_path="/Users/pranshu.khandelwal/Desktop/Phoenix_final/lib"
 hbase_env = {}
 if os.path.isfile(hbase_env_path):
     p = subprocess.Popen(hbase_env_cmd, stdout = subprocess.PIPE)
@@ -106,7 +106,7 @@ if os.name == 'nt':
     colorSetting = "false"
 
 java_cmd = java + ' $PHOENIX_OPTS ' + \
-    ' -cp "' + hbase_config_path + os.pathsep + phoenix_utils.hbase_conf_dir + os.pathsep + phoenix_utils.phoenix_client_jar + \
+    ' -cp "' + hbase_client_path + os.pathsep + hbase_config_path + os.pathsep + phoenix_utils.hbase_conf_dir + os.pathsep + phoenix_utils.phoenix_client_jar + \
     os.pathsep + phoenix_utils.hadoop_common_jar + os.pathsep + phoenix_utils.hadoop_hdfs_jar + \
     os.pathsep + phoenix_utils.hadoop_conf + os.pathsep + phoenix_utils.hadoop_classpath + '" -Dlog4j.configuration=file:' + \
     os.path.join(phoenix_utils.current_dir, "log4j.properties") + \

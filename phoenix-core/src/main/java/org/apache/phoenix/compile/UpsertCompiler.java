@@ -75,7 +75,7 @@ import org.apache.phoenix.parse.ParseNode;
 import org.apache.phoenix.parse.SelectStatement;
 import org.apache.phoenix.parse.SequenceValueParseNode;
 import org.apache.phoenix.parse.UpsertStatement;
-import org.apache.phoenix.propagatetrace.RequestIdPropagation;
+import org.apache.phoenix.propagatetrace.RequestIdPropagationPhoenix;
 import org.apache.phoenix.query.ConnectionQueryServices;
 import org.apache.phoenix.query.QueryConstants;
 import org.apache.phoenix.query.QueryServices;
@@ -174,7 +174,7 @@ public class UpsertCompiler {
             }
         }
         RowMutationState rowMutationStateTrace=new RowMutationState(columnValues, columnValueSize, statement.getConnection().getStatementExecutionCounter(), rowTsColInfo, onDupKeyBytes);
-        RequestIdPropagation.propagateRequestId(statement,rowMutationStateTrace);
+        RequestIdPropagationPhoenix.propagateRequestId(statement,rowMutationStateTrace);
         mutation.put(ptr,rowMutationStateTrace);
     }
     

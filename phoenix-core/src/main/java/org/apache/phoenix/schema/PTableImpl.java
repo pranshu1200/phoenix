@@ -60,7 +60,7 @@ import org.apache.phoenix.jdbc.PhoenixConnection;
 import org.apache.phoenix.jdbc.PhoenixStatement;
 import org.apache.phoenix.parse.ParseNode;
 import org.apache.phoenix.parse.SQLParser;
-import org.apache.phoenix.propagatetrace.RequestIdPropagation;
+import org.apache.phoenix.propagatetrace.RequestIdPropagationPhoenix;
 import org.apache.phoenix.protobuf.ProtobufUtil;
 import org.apache.phoenix.query.QueryConstants;
 import org.apache.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
@@ -971,7 +971,7 @@ public class PTableImpl implements PTable {
                     mutations.add(unsetValues);
                 }
             }
-            RequestIdPropagation.propagateRequestId(this,mutations);
+            RequestIdPropagationPhoenix.propagateRequestId(this,mutations);
             return mutations;
         }
 
