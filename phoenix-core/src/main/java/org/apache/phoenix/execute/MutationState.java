@@ -73,7 +73,7 @@ import org.apache.phoenix.monitoring.MutationMetricQueue;
 import org.apache.phoenix.monitoring.MutationMetricQueue.MutationMetric;
 import org.apache.phoenix.monitoring.MutationMetricQueue.NoOpMutationMetricsQueue;
 import org.apache.phoenix.monitoring.ReadMetricQueue;
-import org.apache.phoenix.propagatetrace.RequestIdPropagation;
+import org.apache.phoenix.propagatetrace.RequestIdPropagationPhoenix;
 import org.apache.phoenix.query.QueryConstants;
 import org.apache.phoenix.query.QueryServices;
 import org.apache.phoenix.query.QueryServicesOptions;
@@ -635,7 +635,7 @@ public class MutationState implements SQLCloseable {
                 // The DeleteCompiler already generates the deletes for indexes, so no need to do it again
                 rowMutationsPertainingToIndex = Collections.emptyList();
             } else {
-                RequestIdPropagation.propagateRequestId(rowEntry.getValue(),row);
+                RequestIdPropagationPhoenix.propagateRequestId(rowEntry.getValue(),row);
                 for (Map.Entry<PColumn, byte[]> valueEntry : rowEntry.getValue().getColumnValues().entrySet()) {
                     row.setValue(valueEntry.getKey(), valueEntry.getValue());
                 }
@@ -1090,7 +1090,7 @@ public class MutationState implements SQLCloseable {
                             }, iwe, connection, connection.getQueryServices().getProps());
                             shouldRetryIndexedMutation = false;
                         } else {
-                            RequestIdPropagation.logRequestIdAssigned(mutationBatch);
+                            RequestIdPropagationPhoenix.logRequestIdAssigned(mutationBatch);
                             hTable.batch(mutationBatch);
                         }
                         // remove each batch from the list once it gets applied

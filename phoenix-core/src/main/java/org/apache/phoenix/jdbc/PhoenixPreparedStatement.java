@@ -52,6 +52,7 @@ import org.apache.phoenix.compile.QueryPlan;
 import org.apache.phoenix.compile.StatementPlan;
 import org.apache.phoenix.exception.SQLExceptionCode;
 import org.apache.phoenix.exception.SQLExceptionInfo;
+import org.apache.phoenix.propagatetrace.RequestIdPropagationPhoenix;
 import org.apache.phoenix.schema.ExecuteQueryNotApplicableException;
 import org.apache.phoenix.schema.ExecuteUpdateNotApplicableException;
 import org.apache.phoenix.schema.Sequence;
@@ -80,6 +81,9 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
 
     public PhoenixPreparedStatement(PhoenixConnection connection, PhoenixStatementParser parser) throws SQLException, IOException {
         super(connection);
+        if(this.getRequestId()==null||this.getRequestId()==""){
+            RequestIdPropagationPhoenix.setInitialRequestId(this);
+        }
         this.statement = parser.nextStatement(new ExecutableNodeFactory());
         if (this.statement == null) { throw new EOFException(); }
         this.query = null; // TODO: add toString on SQLStatement

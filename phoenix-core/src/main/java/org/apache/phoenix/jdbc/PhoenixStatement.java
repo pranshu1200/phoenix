@@ -149,7 +149,7 @@ import org.apache.phoenix.parse.UDFParseNode;
 import org.apache.phoenix.parse.UpdateStatisticsStatement;
 import org.apache.phoenix.parse.UpsertStatement;
 import org.apache.phoenix.parse.UseSchemaStatement;
-import org.apache.phoenix.propagatetrace.RequestIdPropagation;
+import org.apache.phoenix.propagatetrace.RequestIdPropagationPhoenix;
 import org.apache.phoenix.query.HBaseFactoryProvider;
 import org.apache.phoenix.query.KeyRange;
 import org.apache.phoenix.query.QueryConstants;
@@ -334,7 +334,6 @@ public class PhoenixStatement implements Statement, SQLCloseable {
                         }
                         context.getOverallQueryMetrics().startQuery();
                         PhoenixResultSet rs = newResultSet(resultIterator, plan.getProjector(), plan.getContext());
-                        RequestIdPropagation.logResultSetCreated(rs);
                         resultSets.add(rs);
                         setLastQueryPlan(plan);
                         setLastResultSet(rs);
@@ -345,7 +344,7 @@ public class PhoenixStatement implements Statement, SQLCloseable {
                             connection.commit();
                         }
                         connection.incrementStatementExecutionCounter();
-                        RequestIdPropagation.logEndOfSelect(plan);
+                        RequestIdPropagationPhoenix.logEndOfSelect(plan);
                         return rs;
                     }
                     //Force update cache and retry if meta not found error occurs
@@ -505,7 +504,7 @@ public class PhoenixStatement implements Statement, SQLCloseable {
 
             QueryPlan plan = new QueryCompiler(stmt, select, resolver, Collections.<PDatum>emptyList(), stmt.getConnection().getIteratorFactory(), new SequenceManager(stmt), true, false, null).compile();
             plan.getContext().getSequenceManager().validateSequences(seqAction);
-            RequestIdPropagation.propagateRequestId(stmt,plan.getContext().getScan());
+            RequestIdPropagationPhoenix.propagateRequestId(stmt,plan.getContext().getScan());
             return plan;
         }
 
