@@ -79,6 +79,7 @@ import org.apache.phoenix.log.LogLevel;
 import org.apache.phoenix.monitoring.MetricType;
 import org.apache.phoenix.parse.PFunction;
 import org.apache.phoenix.parse.PSchema;
+import org.apache.phoenix.propagatetrace.RequestIdPropagationPhoenix;
 import org.apache.phoenix.query.ConnectionQueryServices;
 import org.apache.phoenix.query.DelegateConnectionQueryServices;
 import org.apache.phoenix.query.MetaDataMutated;
@@ -716,13 +717,14 @@ public class PhoenixConnection implements Connection, MetaDataMutated, SQLClosea
     public Statement createStatement() throws SQLException {
         checkOpen();
         PhoenixStatement statement = new PhoenixStatement(this);
+        RequestIdPropagationPhoenix.setInitialRequestId(statement);
         statements.add(statement);
         return statement;
     }
 
     /**
      * Back-door way to inject processing into walking through a result set
-     * 
+     *
      * @param statementFactory
      * @return PhoenixStatement
      * @throws SQLException
@@ -730,6 +732,7 @@ public class PhoenixConnection implements Connection, MetaDataMutated, SQLClosea
     public PhoenixStatement createStatement(
             PhoenixStatementFactory statementFactory) throws SQLException {
         PhoenixStatement statement = statementFactory.newStatement(this);
+        RequestIdPropagationPhoenix.setInitialRequestId(statement);
         statements.add(statement);
         return statement;
     }
@@ -900,6 +903,7 @@ public class PhoenixConnection implements Connection, MetaDataMutated, SQLClosea
         checkOpen();
         PhoenixPreparedStatement statement = new PhoenixPreparedStatement(this,
                 sql);
+        RequestIdPropagationPhoenix.setInitialRequestId(statement);
         statements.add(statement);
         return statement;
     }

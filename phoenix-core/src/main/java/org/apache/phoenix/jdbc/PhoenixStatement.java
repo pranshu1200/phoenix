@@ -149,6 +149,7 @@ import org.apache.phoenix.parse.UDFParseNode;
 import org.apache.phoenix.parse.UpdateStatisticsStatement;
 import org.apache.phoenix.parse.UpsertStatement;
 import org.apache.phoenix.parse.UseSchemaStatement;
+import org.apache.phoenix.propagatetrace.RequestIdPropagationPhoenix;
 import org.apache.phoenix.query.HBaseFactoryProvider;
 import org.apache.phoenix.query.KeyRange;
 import org.apache.phoenix.query.QueryConstants;
@@ -250,34 +251,44 @@ public class PhoenixStatement implements Statement, SQLCloseable {
     private int maxRows;
     private int fetchSize = -1;
     private int queryTimeoutMillis;
-    
+    private String requestId;
+
     public PhoenixStatement(PhoenixConnection connection) {
         this.connection = connection;
         this.queryTimeoutMillis = getDefaultQueryTimeoutMillis();
     }
+
+    public String getRequestId(){
+        return this.requestId;
+    }
+
+    public void setRequestId(String requestId){
+        this.requestId=requestId;
+    }
+
 
     /**
      * Internally to Phoenix we allow callers to set the query timeout in millis
      * via the phoenix.query.timeoutMs. Therefore we store the time in millis.
      */
     private int getDefaultQueryTimeoutMillis() {
-        return connection.getQueryServices().getProps().getInt(QueryServices.THREAD_TIMEOUT_MS_ATTRIB, 
+        return connection.getQueryServices().getProps().getInt(QueryServices.THREAD_TIMEOUT_MS_ATTRIB,
             QueryServicesOptions.DEFAULT_THREAD_TIMEOUT_MS);
     }
 
     protected List<PhoenixResultSet> getResultSets() {
         return resultSets;
     }
-    
+
     public PhoenixResultSet newResultSet(ResultIterator iterator, RowProjector projector, StatementContext context) throws SQLException {
         return new PhoenixResultSet(iterator, projector, context);
     }
-    
+
     protected QueryPlan optimizeQuery(CompilableStatement stmt) throws SQLException {
         QueryPlan plan = stmt.compilePlan(this, Sequence.ValueOp.VALIDATE_SEQUENCE);
         return connection.getQueryServices().getOptimizer().optimize(this, plan);
     }
-    
+
     protected PhoenixResultSet executeQuery(final CompilableStatement stmt, final QueryLogger queryLogger)
             throws SQLException {
         return executeQuery(stmt, true, queryLogger);
@@ -333,6 +344,7 @@ public class PhoenixStatement implements Statement, SQLCloseable {
                             connection.commit();
                         }
                         connection.incrementStatementExecutionCounter();
+                        RequestIdPropagationPhoenix.logEndOfSelect(plan);
                         return rs;
                     }
                     //Force update cache and retry if meta not found error occurs
@@ -492,6 +504,7 @@ public class PhoenixStatement implements Statement, SQLCloseable {
 
             QueryPlan plan = new QueryCompiler(stmt, select, resolver, Collections.<PDatum>emptyList(), stmt.getConnection().getIteratorFactory(), new SequenceManager(stmt), true, false, null).compile();
             plan.getContext().getSequenceManager().validateSequences(seqAction);
+            RequestIdPropagationPhoenix.propagateRequestId(stmt,plan.getContext().getScan());
             return plan;
         }
 
